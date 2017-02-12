@@ -235,6 +235,7 @@ function getNumberOfUsers() {
       .andWhere('direction', '=', 'in')
       .groupBy('user')
       .select(knex.raw(1))
+      .as('q1')
     })
     .then().get(0)
     .then(result => ({ label: range.label, count: result.count }))
@@ -254,8 +255,8 @@ function usersRetention() {
   cohorts = cohorts.map(n => {
     const day = moment(new Date()).subtract(n, 'days')
     return {
-      start: day.startOf('day').format('x'),
-      end: day.endOf('day').format('x'),
+      start: day.startOf('day').toDate(),
+      end: day.endOf('day').toDate(),
       name: day.format('MMM Do'),
       date: day
     }
@@ -265,14 +266,15 @@ function usersRetention() {
 
   return Promise.mapSeries(cohorts, coo => {
 
-    knex.select(knex.raw('count(*) as total, date(date) as date'))
+    knex.select(knex.raw('count(*) as total, date(date)'))
     .from(function() {
-      this.select(['user', 'ts'])
+      this.select(['analytics_interactions.user', knex.raw('date(ts)')])
       .from('analytics_interactions')
       .join('users', 'user', 'users.id')
       .where(helpers(knex).date.isBetween('ts', coo.start, coo.end))
       .andWhere('direction', '=', 'in')
-      .groupBy(knex.raw('user, date(ts) as date'))
+      .groupBy(knex.raw('analytics_interactions.user, date(ts)'))
+      .as('q1')
     })
     .groupBy(knex.raw('date(date)'))
     .then(results => {
@@ -307,12 +309,12 @@ function getBusyHours() {
   const ranges = getLastDaysRange(7)
   const result = {}
 
-  return Promise.mapSeries(ranges, (range) => {
+  return Promise.mapSeries(ranges, range => {
 
     // select count(*) as count, ts from interactions
     // group by strftime('%H', ts/1000, 'unixepoch')
     return knex('analytics_interactions')
-    .where(helpers(knex).date.isBetween('ts', coo.start, coo.end))
+    .where(helpers(knex).date.isBetween('ts', range.start, range.end))
     .select(knex.raw('count(*) as count, date(ts)'))
     .groupBy(knex.raw('date(ts)'))
     .then(rows => {

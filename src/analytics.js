@@ -48,7 +48,7 @@ class Analytics {
     if (this.bp.db.location !== 'postgres') {
       return fs.statSync(this.bp.db.location)['size'] / 1000000.0 // in megabytes  
     } else {
-      return 100
+      return 1
     }
   }
 
