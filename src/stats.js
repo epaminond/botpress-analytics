@@ -14,7 +14,7 @@ function rangeDates() {
       return null
     }
 
-    var range = result.max - result.min
+    var range = moment(result.max).diff(moment(result.min), 'days')
     var ranges = []
     for(var i = 1; i <= 10; i++) {
       ranges.push(parseInt(result.min + (range/10*i)))
@@ -25,10 +25,10 @@ function rangeDates() {
       format: null, 
       ranges: ranges
     }
-    if(range / oneDayMs < 360) {
-      ret.format = (date) => moment(date).format('MMM Do')
+    if(range < 360) {
+      ret.format = date => moment(date).format('MMM Do')
     } else { // > 1year period
-      ret.format = (date) => moment(date).format('MMM YY')
+      ret.format = date => moment(date).format('MMM YY')
     }
 
     return ret
@@ -48,7 +48,7 @@ function getTotalUsers() {
       }, { total: 0 })
 
       return knex('users')
-      .select(knex.raw('count(*) as count, max(created_on) as date, max(platform)'))
+      .select(knex.raw('count(*) as count, max(created_on) as date, max(platform) as platform'))
       .groupBy(knex.raw("date(created_on), platform"))
       .orderBy(knex.raw('date(created_on)'))
       .then(rows => {
@@ -57,7 +57,7 @@ function getTotalUsers() {
         const result = {}
         const min = dates.format(moment(new Date(dates.min)).subtract(1, 'day'))
         result[min] = Object.assign({}, statsBase)
-        rows.map((row) => {
+        rows.map(row => {
           const date = dates.format(row.date)
           if(!result[date]) {
             result[date] = Object.assign({}, statsBase)
@@ -65,8 +65,9 @@ function getTotalUsers() {
           if(!totalPlatform[row.platform]) {
             totalPlatform[row.platform] = 0
           }
-          totalPlatform[row.platform] += row.count
-          result[date].total = total += row.count
+          const count = parseInt(row.count)
+          totalPlatform[row.platform] += count
+          result[date].total = total += count
           result[date][row.platform] = totalPlatform[row.platform]
         })
         const max = dates.format(moment(new Date(dates.max)).add(1, 'hour'))
@@ -107,8 +108,9 @@ function getDailyActiveUsers() {
     .groupBy(['user', 'platform'])
     .then(results => {
       return results.reduce(function(acc, curr) {
-        acc.total += curr.count
-        acc[curr.platform] = curr.count
+        const count = parseInt(curr.count)
+        acc.total += count
+        acc[curr.platform] = count
         return acc
       }, { total: 0, name: range.date })
     })
@@ -126,8 +128,9 @@ function getDailyGender() {
     .groupBy(['user', 'gender'])
     .then(results => {
       return results.reduce(function(acc, curr) {
-        acc.total += curr.count
-        acc[curr.gender] = curr.count
+        const count = parseInt(curr.count)
+        acc.total += count
+        acc[curr.gender] = count
         return acc
       }, { total: 0, name: range.date })
     })
@@ -136,7 +139,7 @@ function getDailyGender() {
 
 function getInteractionRanges() {
   const ranges = getLastDaysRange()
-  return Promise.mapSeries(ranges, (range) => {
+  return Promise.mapSeries(ranges, range => {
 
     const inner = knex.from('analytics_interactions')
       .where(helpers(knex).date.isBetween('ts', range.start, range.end))
@@ -154,7 +157,7 @@ function getInteractionRanges() {
       sum(r7) as s7,
       sum(r8) as s8
     from (select 
-      (select count(*) where c between 0 and 1) as r1,
+      (select count(*) as count where c between 0 and 1) as r1,
       (select count(*) where c between 2 and 3) as r2,
       (select count(*) where c between 4 and 5) as r3,
       (select count(*) where c between 6 and 9) as r4,
@@ -165,15 +168,15 @@ function getInteractionRanges() {
         from (` + inner + `) as q1 ) as q2`)
   }).then(rows => {
     if (rows[0].rows) {
-      return rows[0].rows
+      return rows.map(r => r.rows[0])
     } else {
-      return rows[0]
+      return rows.map(r => r[0])
     }
   })
   .then(results => {
     return results.reduce(function(acc, curr) {
       return _.mapValues(acc, (a, k) => {
-        return a + (curr[k] || 0)
+        return a + (parseInt(curr[k]) || 0)
       })
     }, { s1: 0, s2: 0, s3: 0, s4: 0, s5: 0, s6: 0, s7: 0, s8: 0 })
   })
@@ -198,13 +201,15 @@ function getAverageInteractions() {
 
   return knex.select(knex.raw('avg(c) as count')).from(function() {
     return this.from('analytics_interactions')
-    .where(helpers(knex).date.isBetween('ts', now, lastWeek))
+    .where(helpers(knex).date.isBetween('ts', lastWeek, now))
     .andWhere('direction', '=', 'in')
     .groupBy(knex.raw("user, date(ts)"))
     .select(knex.raw('count(*) as c'))
     .as('q1')
   })
-  .then().get(0).then(result => result.count)
+  .then().get(0).then(result => {
+    return parseFloat(result.count) || 0.0
+  })
 }
 
 function getNumberOfUsers() {
@@ -253,7 +258,7 @@ function usersRetention() {
 
   let cohorts = _.times(8, n => Number(8 - n))
   cohorts = cohorts.map(n => {
-    const day = moment(new Date()).subtract(n, 'days')
+    const day = moment().subtract(n, 'days')
     return {
       start: day.startOf('day').toDate(),
       end: day.endOf('day').toDate(),
@@ -264,44 +269,53 @@ function usersRetention() {
 
   const result = {}
 
+  // For each days of the cohort
   return Promise.mapSeries(cohorts, coo => {
-
-    knex.select(knex.raw('count(*) as total, date(date)'))
-    .from(function() {
-      this.select(['analytics_interactions.user', knex.raw('date(ts)')])
-      .from('analytics_interactions')
-      .join('users', 'user', 'users.id')
-      .where(helpers(knex).date.isBetween('ts', coo.start, coo.end))
-      .andWhere('direction', '=', 'in')
-      .groupBy(knex.raw('analytics_interactions.user, date(ts)'))
-      .as('q1')
-    })
-    .groupBy(knex.raw('date(date)'))
-    .then(results => {
-      return knex('users')
+    // Compute the cohort size [i.e. how many new users on this day?]
+    return knex('users')
       .where(helpers(knex).date.isBetween('created_on', coo.start, coo.end))
-      .select(knex.raw('count(*) as total'))
-      .then().get(0).then(({ total }) => {
-        const row = []
-        for(var i = 1; i <= 7; i++) {
-          const anchor = moment(coo.date).add(i, 'days').startOf('day').format('l')
-          const f = _.find(results, ({ date }) => {
-            const d = moment(date).startOf('day').format('l')
-            return anchor == d
+      .select(knex.raw('count(*) as cohort_size'))
+      .then().get(0).then(({ cohort_size }) => {
+        cohort_size = parseFloat(cohort_size)
+
+        // Compute the next 7 days of the cohort
+        // and check how many users [from this cohort] spoke on or before this date
+        // A user is considered as retentioned if he interacted with the bot any day after he onboarded
+
+        const daysToAdd = _.times(7, n => n) // from 0 to 6
+        return Promise.mapSeries(daysToAdd, dta => {
+          const since = moment(coo.start).add(dta, 'days').endOf('day').toDate() // +x days
+
+          return knex.from(function() {
+            this.from('analytics_interactions')
+            .join('users', 'analytics_interactions.user', 'users.id')
+            // where he is a member a this cohort
+            .where(helpers(knex).date.isBetween('created_on', coo.start, coo.end))
+            // and where he interacted with the bot since onboard+X days
+            .andWhere(helpers(knex).date.isAfter('ts', since))
+            // and where the user spoke, not the bot
+            .andWhere('direction', '=', 'in')
+            .groupBy('users')
+            // returns the number of interactions per user
+            .select(knex.raw('count(*) as interaction_count'))
+            .as('q1')
+          }).select(knex.raw('count(*) as partial_retention')) // return the total number of users
+          .then().get(0).then(({ partial_retention }) => {
+            partial_retention = parseFloat(partial_retention)
+
+            // if the date is out of the cohort sample
+            if (moment(since).startOf('day').isSameOrAfter(moment().startOf('day'))) {
+              return null
+            }
+
+            return (partial_retention / cohort_size) || 0
           })
-          if (f) {
-            row.push(Number((f.total / total).toFixed(2)))
-          } else {
-            row.push(null)
-          }
-        }
-        const mean = _.mean(_.filter(row, v => v !== null))
-        row.unshift(total)
-        row.push(_.isNaN(mean) ? 0 : mean)
-        result[coo.name] = row
+        }).then(retention => {
+          const mean = _.mean(_.filter(retention, v => v !== null))
+          result[coo.name] = [cohort_size, ...retention, mean]
+        })
       })
     })
-  })
   .then(() => result)
 }
 
@@ -310,13 +324,12 @@ function getBusyHours() {
   const result = {}
 
   return Promise.mapSeries(ranges, range => {
-
     // select count(*) as count, ts from interactions
     // group by strftime('%H', ts/1000, 'unixepoch')
     return knex('analytics_interactions')
     .where(helpers(knex).date.isBetween('ts', range.start, range.end))
-    .select(knex.raw('count(*) as count, date(ts)'))
-    .groupBy(knex.raw('date(ts)'))
+    .select(knex.raw('count(*) as count, ' + helpers(knex).date.hourOfDay('ts').sql + ' as ts'))
+    .groupBy(helpers(knex).date.hourOfDay('ts'))
     .then(rows => {
       const row = []
       _.times(24, () => row.push(0))
@@ -324,7 +337,7 @@ function getBusyHours() {
         return acc = curr.count > acc ? curr.count : acc
       }, 0)
       rows.map(x => {
-        row[moment(x.ts).format('H')] = Math.min(Number((x.count/biggest).toFixed(2)), 0.75)
+        row[parseInt(x.ts)] = Math.min(Number((x.count/biggest).toFixed(2)), 0.75)
       })
 
       result[range.date] = row
