@@ -1,6 +1,7 @@
 const checkVersion = require('botpress-version-manager')
 
 const Analytics = require('./analytics')
+const CustomAnalytics = require('./custom_analytics')
 const DB = require('./db')
 const _ = require('lodash')
 
@@ -67,6 +68,10 @@ module.exports = {
       handler: outgoingMiddleware,
       description: 'Tracks outgoing messages for Analytics purposes'
     })
+
+    bp.analytics = {
+      custom: CustomAnalytics({ bp })
+    }
 
     bp.db.get()
     .then(knex => {
