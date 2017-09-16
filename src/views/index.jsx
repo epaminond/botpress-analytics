@@ -118,7 +118,9 @@ export default class AnalyticsModule extends React.Component {
 
   constructor(props) {
     super(props)
-    this.state = { loading: true }
+    this.state = { loading: true, custom_metrics: [] }
+
+    this.fetchData = this.fetchData.bind(this)
   }
 
   componentDidMount() {
@@ -130,12 +132,26 @@ export default class AnalyticsModule extends React.Component {
       this.setState({ ...data })
     })
 
+    this.fetchData()
+
     this.props.bp.events.on('data.send', (data) => {
       if (this.unmounting) return
       this.setState({
           ...data
         }
       )
+    })
+  }
+
+  fetchData() {
+    return this.props.bp.axios.get('/api/botpress-analytics/custom_metrics', {
+      params: {
+        from: '2017-09-11',
+        to: '2017-09-19'
+      }
+    })
+    .then(({ data }) => {
+      this.setState({ custom_metrics: data })
     })
   }
 
@@ -454,6 +470,48 @@ export default class AnalyticsModule extends React.Component {
     )
   }
 
+  renderCustomMetric(metric) {
+    return(
+      <Panel header={metric.name}>
+        <div className={style.smallGraphContainer}>
+          <div>Hello !!! {JSON.stringify(metric)}</div>
+        </div>
+      </Panel>
+    )
+  }
+
+  renderCustomMetrics() {
+    const chunks = _.chunk(this.state.custom_metrics || [], 4)
+
+    if (!chunks.length) {
+      return null
+    }
+
+    const renderChunk = chunk => {
+      return chunk.map(metric => {
+        return <Col sm={6} md={3}>
+          {this.renderCustomMetric(metric)}
+        </Col>
+      })
+    }
+
+    const chunkElements = chunks.map((chunk, i) => 
+      <Row key={`chunk-${i}`}>{renderChunk(chunk)}</Row>)
+
+    return (
+      <div>
+        <Row>
+          <Col sm={12}>
+            <div className={style.title}>Custom Analytics</div>
+            <hr/>
+          </Col>
+        </Row>
+        <Grid fluid >
+          {chunkElements}
+        </Grid>
+      </div>
+    )
+  }
 
   renderBasicMetrics() {
     return (
@@ -504,6 +562,14 @@ export default class AnalyticsModule extends React.Component {
     return (
       <div>
         <StatsHeader axios={this.props.bp.axios}/>
+        {this.renderCustomMetrics()}
+        <Row>
+          <Col sm={12}>
+            <div className={style.title}>Generic Analytics</div>
+            <hr/>
+          </Col>
+          <hr/>
+        </Row>
         {this.renderBasicMetrics()}
         {this.renderAdvancedMetrics()}
       </div>

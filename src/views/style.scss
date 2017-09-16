@@ -8,8 +8,22 @@
   background-color: #fff;
 }
 
+.title {
+  font-size: 20px;
+  padding-left: 15px;
+}
+
+hr {
+  margin: 10px 15px 20px 15px;
+  border-color: #d6d6d6;
+}
+
 .graphContainer {
   height: 350px;
+}
+
+.smallGraphContainer {
+  height: 150px;
 }
 
 .graphContainerTwoColumn {

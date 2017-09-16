@@ -83,7 +83,7 @@ module.exports = ({ bp }) => {
         })
       })
 
-      return rows
+      return Object.assign({}, graph, { results: rows })
     },
 
     'percent': async function(graph, from, to) {
@@ -96,7 +96,7 @@ module.exports = ({ bp }) => {
 
       const allDates = _.uniq(_.map(count1, 'date'), _.map(count2, 'date'))
 
-      return allDates.map(date => {
+      const rows = allDates.map(date => {
         const n1 = _.find(count1, { date: date }) || { count: 0 }
         const n2 = _.find(count2, { date: date }) || { count: 1 }
 
@@ -108,6 +108,8 @@ module.exports = ({ bp }) => {
 
         return { date: date, percent: percent }
       })
+      
+      return Object.assign({}, graph, { results: rows })
     },
 
     'piechart': async function(graph, from, to) {
@@ -132,7 +134,7 @@ module.exports = ({ bp }) => {
         })
       })
 
-      return rows
+      return Object.assign({}, graph, { results: rows })
     }
   }
 

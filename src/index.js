@@ -94,5 +94,10 @@ module.exports = {
       .then(metadata => res.send(metadata))
     })
 
+    bp.getRouter('botpress-analytics')
+    .get('/custom_metrics', async (req, res, next) => {
+      const metrics = await bp.analytics.custom.getAll(req.query.from, req.query.to)
+      res.send(metrics)
+    })
   }
 }
