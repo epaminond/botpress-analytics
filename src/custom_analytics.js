@@ -94,7 +94,7 @@ module.exports = ({ bp }) => {
       const count1 = await getters.count({ variables: [variable1] }, from, to)
       const count2 = await getters.count({ variables: [variable2] }, from, to)
 
-      const allDates = _.uniq(_.map(count1, 'date'), _.map(count2, 'date'))
+      const allDates = _.uniq(_.map(count1.results, 'date'), _.map(count2.results, 'date'))
 
       const rows = allDates.map(date => {
         const n1 = _.find(count1, { date: date }) || { count: 0 }
