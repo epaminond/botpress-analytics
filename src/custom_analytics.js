@@ -94,21 +94,28 @@ module.exports = ({ bp }) => {
       const count1 = await getters.count({ variables: [variable1] }, from, to)
       const count2 = await getters.count({ variables: [variable2] }, from, to)
 
+      console.log('lollll')
+      console.log('count1 :',count1 ,'\n','count2 :',count2)
+
       const allDates = _.uniq(_.map(count1.results, 'date'), _.map(count2.results, 'date'))
 
       const rows = allDates.map(date => {
-        const n1 = _.find(count1, { date: date }) || { count: 0 }
-        const n2 = _.find(count2, { date: date }) || { count: 1 }
+        const n1 = _.find(count1.results, { date: date }) || { count: 0 }
+        const n2 = _.find(count2.results, { date: date }) || { count: 1 }
+
+        console.log('n1 :',n1 ,'\n','n2 :',n2)
+        console.log('count1 :',count1 ,'\n','count2 :',count2)
 
         let percent = n1.count / n2.count
 
+        console.log('percent : ',percent)
         if (percent > 1) {
           percent = 1
         }
 
         return { date: date, percent: percent }
       })
-      
+
       return Object.assign({}, graph, { results: rows })
     },
 

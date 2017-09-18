@@ -179,7 +179,7 @@ export default class CustomMetrics extends React.Component {
       data.push(data[0])
     }
 
-    const sum = _.sumBy(metric.results, 'count')
+    const sum = _.sumBy(metric.results, 'percent')
     let avgPerDay = (sum / metric.results.length).toFixed(2)
     let absAvg = (sum / data.length).toFixed(2)
 
@@ -244,7 +244,7 @@ export default class CustomMetrics extends React.Component {
       })
     }
 
-    const chunkElements = chunks.map((chunk, i) => 
+    const chunkElements = chunks.map((chunk, i) =>
       <Row key={`chunk-${i}`}>{renderChunk(chunk)}</Row>)
 
     const currentSelection = ranges[this.state.range]().label
