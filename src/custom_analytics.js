@@ -5,13 +5,9 @@ import Promise from 'bluebird'
 module.exports = ({ bp }) => {
   const graphs = []
 
-  async function increment(name, count = 1, racing = false) {
+  async function update(name, operation, value, racing = false) {
     if (!_.isString(name)) {
       throw new Error('Invalid name, expected a string')
-    }
-
-    if (!_.isNumber(count)) {
-      throw new Error('Invalid count increment, expected a valid number')
     }
 
     const knex = await bp.db.get()
@@ -23,12 +19,10 @@ module.exports = ({ bp }) => {
       name += '~'
     }
 
-    const countQuery = count < 0 ? 'count - ' + Math.abs(count) : 'count + ' + Math.abs(count)
-
     const result = await knex('analytics_custom')
       .where('date', today)
       .andWhere('name', name)
-      .update('count', knex.raw(countQuery))
+      .update('count', operation)
       .then()
 
     if (result == 0 && !racing) {
@@ -36,16 +30,32 @@ module.exports = ({ bp }) => {
         .insert({
           name: name,
           date: today,
-          count: count
+          count: value
         })
         .catch(err => {
-          return increment(name, count, true)
+          return update(name, operation, value, true)
         })
     }
   }
 
+  async function increment(name, count = 1) {
+    if (!_.isNumber(count)) {
+      throw new Error('Invalid count increment, expected a valid number')
+    }
+
+    const countQuery = count < 0 ? 'count - ' + Math.abs(count) : 'count + ' + Math.abs(count)
+
+    const knex = await bp.db.get()
+
+    return update(name, knex.raw(countQuery), count)
+  }
+
   async function decrement(name, count = 1) {
     return increment(name, count * -1)
+  }
+
+  async function set(name, count = 1) {
+    return update(name, count, count)
   }
 
   //{ name, type, description, variables }
@@ -56,10 +66,6 @@ module.exports = ({ bp }) => {
 
     graphs.push(graph)
   }
-
-  // FROM = 2017-09-11
-  // TO = 2017-09-15
-  // YYYY-MM-DD
 
   const getters = {
     count: async function(graph, from, to) {
@@ -96,6 +102,10 @@ module.exports = ({ bp }) => {
         const n2 = _.find(count2.results, { date: date }) || { count: 1 }
 
         let percent = n1.count / n2.count
+
+        if (_.isFunction(graph.fn)) {
+          percent = graph.fn(n1.count, n2.count)
+        }
 
         if (percent > 1) {
           percent = 1
@@ -137,5 +147,5 @@ module.exports = ({ bp }) => {
     return Promise.map(graphs, graph => getters[graph.type](graph, from, to))
   }
 
-  return { increment, decrement, addGraph, getAll }
+  return { increment, decrement, set, addGraph, getAll }
 }
