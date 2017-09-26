@@ -33,13 +33,7 @@ const color = {
   conversation: '#de5454'
 }
 
-const pieChartColors = {
-  red: '#F18F01',
-  blue: '#ADCAD6',
-  green: '#006E90',
-  pink: '#99C24D'
-}
-
+const pieChartColors = ['#F18F01', '#ADCAD6', '#006E90', '#99C24D', '#4cbdb9', '#4cbdb9']
 const RADIAN = Math.PI / 180
 
 const ranges = {
@@ -238,42 +232,14 @@ export default class CustomMetrics extends React.Component {
 
   render_piechart(metric) {
     const data = metric.results.map(row => {
-      let colors
-      let name
-      switch (row.name) {
-        case 'rating_good':
-          colors = pieChartColors.red
-          name = 'Bad Review'
-          break
-        case 'rating_bad':
-          colors = pieChartColors.green
-          name = 'Good Review'
-          break
-        case 'rating_feedback':
-          colors = pieChartColors.blue
-          name = 'Writing feedback'
-          break
-        default:
-          colors = pieChartColors.pink
-          name = 'WTF'
-      }
-      return { name: name, value: row.count, color: colors }
+      return { name: row.name, value: row.count }
     })
-    // {data.map((entry, index) => <Cell fill={data.color} />)}
 
     return (
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
-          <Pie
-            data={data}
-            cy={70}
-            innerRadius={0}
-            outerRadius={70}
-            fill="#82ca9d"
-            isAnimationActive={false}
-            label={renderCustomizedLabel}
-          >
-            {data.map((entry, index) => <Cell key={index} fill={entry.color} />)}
+          <Pie data={data} cy={70} innerRadius={0} outerRadius={70} fill="#82ca9d" label={renderCustomizedLabel}>
+            {data.map((entry, index) => <Cell key={index} fill={pieChartColors[index % pieChartColors.length]} />)}
           </Pie>
           <Tooltip />
         </PieChart>
