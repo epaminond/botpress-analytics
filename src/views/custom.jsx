@@ -285,7 +285,7 @@ export default class CustomMetrics extends React.Component {
     const renderChunk = chunk => {
       return chunk.map(metric => {
         return (
-          <Col sm={6} md={3} key={`col-metric-${metric.name}`}>
+          <Col sm={6} md={4} key={`col-metric-${metric.name}`}>
             {this.renderCustomMetric(metric)}
           </Col>
         )
